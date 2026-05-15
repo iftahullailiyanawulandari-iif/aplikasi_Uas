@@ -1,86 +1,130 @@
 import 'package:flutter/material.dart';
+import '../models/order_item.dart';
 
-class MapsTab extends StatelessWidget {
-  const MapsTab({super.key});
+class TrackingTab extends StatefulWidget {
+  final List<OrderItem> orders;
+  final Function(String) onComplete;
+
+  const TrackingTab({super.key, required this.orders, required this.onComplete});
+
+  @override
+  State<TrackingTab> createState() => _TrackingTabState();
+}
+
+class _TrackingTabState extends State<TrackingTab> {
+  String selectedFilter = 'Semua';
 
   @override
   Widget build(BuildContext context) {
+    List<OrderItem> filteredOrders = widget.orders.where((o) {
+      if (selectedFilter == 'Aktif') return o.step < 4;
+      if (selectedFilter == 'Selesai') return o.step == 4;
+      return true; // Semua
+    }).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Lokasi Laundry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text('Tracking Cucian', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list), 
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Filter tambahan belum tersedia')));
+            }
+          ),
+        ],
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
-                ],
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  icon: Icon(Icons.search, color: Colors.grey),
-                  hintText: 'Cari cabang laundry',
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-          ),
-          // Mock Map Area
           Container(
-            height: 250,
-            width: double.infinity,
-            color: Colors.grey[300], // Mock Map background
-            child: Stack(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
               children: [
-                Positioned(top: 50, left: 100, child: InkWell(onTap: () => _showLocationInfo(context, 'Cabang A'), child: const Icon(Icons.location_on, color: Color(0xFF1E88E5), size: 40))),
-                Positioned(top: 150, left: 200, child: InkWell(onTap: () => _showLocationInfo(context, 'Cabang B'), child: const Icon(Icons.location_on, color: Color(0xFF1E88E5), size: 40))),
-                Positioned(top: 100, left: 250, child: InkWell(onTap: () => _showLocationInfo(context, 'Cabang C'), child: const Icon(Icons.location_on, color: Color(0xFF1E88E5), size: 40))),
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Colors.white,
-                    onPressed: () {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lokasi Anda ditemukan')));
-                    },
-                    child: const Icon(Icons.my_location, color: Colors.black),
-                  ),
-                ),
+                Expanded(child: _buildTabButton('Semua', selectedFilter == 'Semua')),
+                Expanded(child: _buildTabButton('Aktif', selectedFilter == 'Aktif')),
+                Expanded(child: _buildTabButton('Selesai', selectedFilter == 'Selesai')),
               ],
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildBranchCard(context, 'Laundry Cabang A', 'Jl. Merdeka No. 10, Kota Anda', 'Buka', '07.00 - 21.00', '500 m', true),
-                const SizedBox(height: 12),
-                _buildBranchCard(context, 'Laundry Cabang B', 'Jl. Sudirman No. 45, Kota Anda', 'Buka', '07.00 - 21.00', '1.2 km', false),
-              ],
-            ),
+            child: filteredOrders.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: filteredOrders.length,
+                  itemBuilder: (context, index) {
+                    final o = filteredOrders[index];
+                    Color statusColor = o.step == 4 ? Colors.green : (o.step == 3 ? Colors.orange : Colors.blue);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildTrackingCard(
+                        orderId: o.id,
+                        date: '${o.date.day}/${o.date.month}/${o.date.year} ${o.date.hour}:${o.date.minute}',
+                        status: o.status,
+                        statusColor: statusColor,
+                        step: o.step,
+                        iconColor: statusColor,
+                      ),
+                    );
+                  },
+                ),
           ),
         ],
       ),
     );
   }
 
-  void _showLocationInfo(BuildContext context, String name) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Menampilkan lokasi: $name')));
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text('Belum ada pesanan', style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('Data pesanan akan muncul di sini', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+        ],
+      ),
+    );
   }
 
-  Widget _buildBranchCard(BuildContext context, String name, String address, String status, String hours, String distance, bool isNearest) {
+  Widget _buildTabButton(String title, bool isSelected) {
+    return GestureDetector(
+      onTap: () => setState(() => selectedFilter = title),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1E88E5) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrackingCard({
+    required String orderId,
+    required String date,
+    required String status,
+    required Color statusColor,
+    required int step,
+    required Color iconColor,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -90,53 +134,92 @@ class MapsTab extends StatelessWidget {
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-            child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.shopping_basket_outlined, color: iconColor),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(distance, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(orderId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text(date, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(address, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(status, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-                    const SizedBox(width: 8),
-                    Text('• $hours', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildTimeline(step),
+          if (step < 4) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => widget.onComplete(orderId),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.green,
+                  side: const BorderSide(color: Colors.green),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
                 ),
-              ],
+                child: const Text('Tandai Selesai'),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton(
-            onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Membuka rute ke $name...')));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E88E5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              minimumSize: Size.zero,
-            ),
-            child: const Text('Rute', style: TextStyle(color: Colors.white)),
-          ),
+          ]
         ],
+      ),
+    );
+  }
+
+  Widget _buildTimeline(int step) {
+    return Row(
+      children: [
+        _buildTimelineStep('Dicuci', step >= 1),
+        _buildTimelineDivider(step >= 2),
+        _buildTimelineStep('Dijemur', step >= 2),
+        _buildTimelineDivider(step >= 3),
+        _buildTimelineStep('Siap Ambil', step >= 3),
+      ],
+    );
+  }
+
+  Widget _buildTimelineStep(String label, bool isActive) {
+    return Column(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF1E88E5) : Colors.grey[300],
+            shape: BoxShape.circle,
+            border: isActive ? Border.all(color: Colors.white, width: 2) : null,
+            boxShadow: isActive ? [BoxShadow(color: const Color(0xFF1E88E5).withOpacity(0.4), blurRadius: 4)] : null,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: TextStyle(color: isActive ? Colors.black87 : Colors.grey, fontSize: 10, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+      ],
+    );
+  }
+
+  Widget _buildTimelineDivider(bool isActive) {
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.only(bottom: 20),
+        color: isActive ? const Color(0xFF1E88E5) : Colors.grey[300],
       ),
     );
   }
